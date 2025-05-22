@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_USER: helpdesk
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: helpdesk_db
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  backend:
+    build: ./backend
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgres://helpdesk:secret@db:5432/helpdesk_db
+    ports:
+      - "3001:3001"
+    # volumes:
+    #   - ./backend:/app
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    # volumes:
+    #   - ./frontend:/app
+        
+volumes:
+  pgdata:
