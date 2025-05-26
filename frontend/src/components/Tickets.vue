@@ -1,141 +1,191 @@
 <template>
   <div class="max-w-2xl mx-auto p-4">
-    <form @submit.prevent="createTicket" class="flex flex-col bg-white p-6 rounded-2xl shadow max-w-xl w-full mx-auto space-y-4">
-  <h2 class="text-xl font-semibold text-gray-800">Создать заявку</h2>
+    <!-- Форма создания заявки -->
+    <form
+      @submit.prevent="createTicket"
+      class="flex flex-col bg-white p-6 rounded-2xl shadow max-w-xl w-full mx-auto space-y-4"
+    >
+      <h2 class="text-xl font-semibold text-gray-800">Создать заявку</h2>
 
-  <div class="flex flex-col bg-gray-100 rounded-full px-6 py-4">
-    <label class="text-gray-700 mb-2">ФИО</label>
-    <input
-      v-model="full_name"
-      placeholder="Фамилия Имя Отчество"
-      required
-      class="w-full border p-2 rounded-xl"
-    />
-  </div>
+      <!-- Выбор категории -->
+      <div class="flex flex-col bg-gray-100 rounded-full px-6 py-4">
+        <label class="text-gray-700 mb-2">Категория заявки</label>
+        <select
+          v-model="selectedCategoryId"
+          @change="onCategoryChange"
+          required
+          class="w-full border p-2 rounded-xl"
+        >
+          <option disabled value="">Выберите категорию</option>
+          <option
+            v-for="cat in categories"
+            :key="cat.id"
+            :value="cat.id"
+          >{{ cat.name }}</option>
+        </select>
+      </div>
 
-  <div class="flex flex-col bg-gray-100 rounded-full px-6 py-4">
-    <label class="text-gray-700 mb-2">Телефон</label>
-    <input
-      v-model="phone"
-      placeholder="+7 (___) ___-__-__"
-      required
-      class="w-full border p-2 rounded-xl"
-    />
-  </div>
+      <!-- Динамические поля по выбранной категории -->
+      <div v-if="selectedCategory">
+        <div
+          v-for="field in selectedCategory.fields"
+          :key="field.name"
+          class="flex flex-col bg-gray-100 rounded-full px-6 py-4 mb-2"
+        >
+          <label class="text-gray-700 mb-2">
+            {{ field.name }}
+            <span v-if="field.required" class="text-red-500">*</span>
+          </label>
+          <input
+            v-model="formFields[field.name]"
+            :type="field.type === 'number' ? 'number' : 'text'"
+            :required="field.required"
+            class="w-full border p-2 rounded-xl"
+            :placeholder="field.name"
+          />
+        </div>
+      </div>
 
-  <div class="flex flex-col bg-gray-100 rounded-full px-6 py-4">
-    <label class="text-gray-700 mb-2">Email</label>
-    <input
-      v-model="email"
-      type="email"
-      placeholder="example@domain.com"
-      required
-      class="w-full border p-2 rounded-xl"
-    />
-  </div>
+      <!-- Кнопка отправки -->
+      <button
+        type="submit"
+        class="bg-blue-600 text-white py-2 px-4 rounded-xl hover:bg-blue-700 transition"
+        :disabled="!isFormValid"
+      >
+        Отправить заявку
+      </button>
+    </form>
 
-  <div class="flex flex-col bg-gray-100 rounded-full px-6 py-4">
-    <label class="text-gray-700 mb-2">Категория заявки</label>
-    <select v-model="category" required class="w-full border p-2 rounded-xl">
-      <option disabled value="">Выберите категорию</option>
-      <option>Техническая поддержка</option>
-      <option>Сетевая проблема</option>
-      <option>ПО / Программы</option>
-      <option>Другое</option>
-    </select>
-  </div>
-
-  <div class="flex flex-col bg-gray-100 rounded-2xl px-6 py-4">
-    <label class="text-gray-700 mb-2">Описание проблемы</label>
-    <textarea
-      v-model="description"
-      placeholder="Опишите проблему максимально подробно"
-      required
-      rows="6"
-      class="w-full border p-2 rounded-xl resize-none h-40"
-    ></textarea>
-  </div>
-
-  <div class="flex flex-col bg-gray-100 rounded-full px-6 py-4">
-    <label class="text-gray-700 mb-2">Скриншот (необязательно)</label>
-    <input type="file" @change="handleFile" accept="image/png, image/jpeg" class="block" />
-  </div>
-
-  <button
-    type="submit"
-    class="bg-blue-600 text-white py-2 px-4 rounded-xl hover:bg-blue-700 transition disabled:opacity-50"
-    :disabled="!isFormValid"
-  >
-    Отправить заявку
-  </button>
-</form>
-
-
-
+    <!-- Список заявок -->
     <ul class="mt-6 space-y-4">
       <li
         v-for="t in tickets"
         :key="t.id"
         class="bg-white p-4 shadow rounded-xl"
       >
-        <div class="text-sm text-gray-600">[{{ t.status }}] — {{ t.category }}</div>
-        <div class="text-lg font-semibold text-gray-800">{{ t.full_name }}</div>
-        <div class="text-gray-700">{{ t.description }}</div>
-        <div class="text-sm text-gray-500">Email: {{ t.email }} | Телефон: {{ t.phone }}</div>
-        <div class="text-sm text-gray-500">Исполнитель: {{ t.assigned_to || 'не назначен' }}</div>
+        <div class="text-sm text-gray-600">
+          [{{ t.status }}] — Категория: {{ getCategoryName(t.category_id) }}
+        </div>
+        <div class="text-sm text-gray-700 mb-2">
+          <div v-for="(value, key) in t.fields" :key="key">
+            <b>{{ key }}:</b> {{ value }}
+          </div>
+        </div>
+        <div class="text-sm text-gray-500">
+          Исполнитель: {{ t.assigned_to || 'не назначен' }}
+        </div>
+        <div class="text-sm text-gray-500">
+          Создано: {{ t.created_at ? formatDate(t.created_at) : '' }}
+          <span v-if="t.created_by"> | От: {{ t.created_by }}</span>
+        </div>
       </li>
     </ul>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
-import axios from 'axios';
+import { ref, reactive, computed, onMounted } from 'vue'
+import api from '../api.js' // api настроен с baseURL = http://localhost:3001
 
-const tickets = ref([]);
-const full_name = ref('');
-const phone = ref('');
-const email = ref('');
-const category = ref('');
-const description = ref('');
-const screenshotFile = ref<File | null>(null);
+interface CategoryField {
+  name: string
+  type: 'string' | 'number'
+  required: boolean
+}
 
-const fetchTickets = async () => {
-  const res = await axios.get('http://localhost:3001/tickets');
-  tickets.value = res.data;
-};
+interface Category {
+  id: number
+  name: string
+  fields: CategoryField[]
+}
 
-const handleFile = (event: Event) => {
-  const target = event.target as HTMLInputElement;
-  if (target.files && target.files[0]) {
-    screenshotFile.value = target.files[0];
-  }
-};
+// реактивные данные
+const categories = ref<Category[]>([])
+const selectedCategoryId = ref<number | ''>('')
+const formFields = reactive<Record<string, string>>({})
+const tickets = ref<any[]>([])
 
+// вычисляемая текущая категория
+const selectedCategory = computed(() =>
+  categories.value.find(c => c.id === Number(selectedCategoryId.value))
+)
+
+// сброс и инициализация полей при смене категории
+function onCategoryChange() {
+  Object.keys(formFields).forEach(k => delete formFields[k])
+  selectedCategory.value?.fields.forEach(f => {
+    formFields[f.name] = ''
+  })
+}
+
+// валидация формы
 const isFormValid = computed(() => {
-  return full_name.value && phone.value && email.value && category.value && description.value;
-});
+  if (!selectedCategory.value) return false
+  return selectedCategory.value.fields.every(
+    f =>
+      !f.required ||
+      (formFields[f.name] != null && formFields[f.name].trim() !== '')
+  )
+})
 
-const createTicket = async () => {
-  await axios.post('http://localhost:3001/tickets', {
-  full_name: full_name.value,
-  phone: phone.value,
-  email: email.value,
-  category: category.value,
-  description: description.value,
-  screenshot_url: screenshotFile.value ? screenshotFile.value.name : null, // или просто null, если файл не нужен
-});
+// загрузка категорий и существующих тикетов
+async function fetchData() {
+  const catRes = await api.get('/categories')
+  categories.value = catRes.data
+  const ticketRes = await api.get('/tickets')
+  tickets.value = ticketRes.data
+}
 
-  full_name.value = '';
-  phone.value = '';
-  email.value = '';
-  category.value = '';
-  description.value = '';
-  screenshotFile.value = null;
-  await fetchTickets();
-};
+// при монтировании — загрузить данные
+onMounted(fetchData)
 
-onMounted(fetchTickets);
+// отправка новой заявки
+async function createTicket() {
+  // берём залогиненного пользователя
+  const created_by = localStorage.getItem('username') || ''
+  if (!created_by) {
+    alert('Сначала войдите в систему')
+    return
+  }
+
+  // валидация обязательных полей
+  for (const f of selectedCategory.value!.fields) {
+    if (f.required && !formFields[f.name]) {
+      alert(`Поле "${f.name}" обязательно!`)
+      return
+    }
+  }
+
+  // собираем тело запроса
+  const payload = {
+    category_id: Number(selectedCategoryId.value),
+    fields: { ...formFields },
+    created_by
+  }
+
+  try {
+    await api.post('/tickets', payload)
+    alert('Заявка отправлена!')
+    // сброс формы
+    Object.keys(formFields).forEach(k => (formFields[k] = ''))
+    selectedCategoryId.value = ''
+    // обновить список
+    await fetchData()
+  } catch (err: any) {
+    console.error(err)
+    alert(err.response?.data?.error || 'Ошибка при отправке заявки!')
+  }
+}
+
+// утилиты для отображения
+function getCategoryName(id: number) {
+  const cat = categories.value.find(c => c.id === id)
+  return cat ? cat.name : 'Неизвестная категория'
+}
+
+function formatDate(dt: string) {
+  return new Date(dt).toLocaleString('ru-RU')
+}
 </script>
 
 <style>

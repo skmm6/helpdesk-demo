@@ -3,6 +3,9 @@ import express from "express";
 import cors from 'cors';
 import ticketRoutes from './routes/tickets.js'
 import { initDb } from './db.js';
+import categoriesRouter from './routes/categories.js';
+import authRouter from './routes/auth.js'
+import authMiddleware from './middleware/auth.js'
 
 
 const app = express();
@@ -10,7 +13,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.use('/tickets', ticketRoutes);
+// Теперь защищаем роуты для тикетов!
+app.use('/tickets', ticketRoutes)
+app.use('/categories', categoriesRouter);
+app.use('/auth', authRouter)
 
 app.get('/', (reg, res) => {
     res.send('Helpdesk backend us running!');

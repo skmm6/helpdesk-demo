@@ -31,24 +31,32 @@ async function testConnection() {
 export async function initDb() {
   try {
     await waitForDb();
-    const query = `
+
+    // --- Категории ---
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS categories (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        fields JSONB NOT NULL
+      );
+    `);
+
+    // --- Заявки ---
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS tickets (
         id SERIAL PRIMARY KEY,
-        full_name TEXT NOT NULL,
-        phone TEXT NOT NULL,
-        email TEXT NOT NULL,
-        category TEXT NOT NULL,
-        description TEXT NOT NULL,
-        screenshot_url TEXT,
+        category_id INTEGER NOT NULL REFERENCES categories(id),
+        fields JSONB NOT NULL,             -- динамические поля из формы
         status TEXT NOT NULL DEFAULT 'Новый',
-        assigned_to TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_by TEXT,                   -- логин/имя залогиненного пользователя
+        created_at TIMESTAMP
+        WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
-    `;
-    await pool.query(query);
-    console.log('✅ Таблица tickets проверена/создана');
+    `);
+
+    console.log('✅ Таблицы categories и tickets проверены/созданы');
   } catch (err) {
-    console.error('❌ Ошибка при создании таблицы:', err);
+    console.error('❌ Ошибка при создании таблиц:', err);
   }
 }
 
