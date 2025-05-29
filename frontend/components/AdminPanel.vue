@@ -35,7 +35,6 @@
 
       <!-- Кнопки действий -->
       <div class="flex space-x-2 pt-2">
-        <!-- НОВЫЕ заявки: принять в работу или отклонить -->
         <button
           v-if="t.status === 'Новый'"
           class="bg-green-500 text-white px-4 py-1 rounded hover:bg-green-600 transition"
@@ -50,8 +49,6 @@
         >
           Отклонить
         </button>
-
-        <!-- В работе: готово или отклонить -->
         <button
           v-if="t.status === 'В работе'"
           class="bg-blue-500 text-white px-4 py-1 rounded hover:bg-blue-600 transition"
@@ -73,31 +70,43 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import api from '../api.js'
+import { useNuxtApp } from '#app'
+import { useUserStore } from '~/stores/user'
 
 const tickets = ref<any[]>([])
 const categories = ref<any[]>([])
-const currentUser = ref<string>('')
+const { $api } = useNuxtApp()
+const userStore = useUserStore()
 
-// Загрузка данных и текущего пользователя
 onMounted(async () => {
-  currentUser.value = localStorage.getItem('username') || ''
+  // Тут можно добавить проверку авторизации и роли
+  if (!userStore.isAuth) {
+    alert('Сначала войдите в систему')
+    return
+  }
+
+  // Если нужен доступ только для админов/суперадминов:
+  if (!userStore.isAdmin) {
+    // alert('Нет доступа')
+    return
+  }
+
   await fetchCategories()
   await fetchTickets()
 })
 
 async function fetchCategories() {
-  const res = await api.get('/categories')
+  const res = await $api.get('/categories')
   categories.value = res.data
 }
 
 async function fetchTickets() {
-  const res = await api.get('/tickets')
+  const res = await $api.get('/tickets')
   tickets.value = res.data
 }
 
 function getCategoryName(category_id: number) {
-  const cat = categories.value.find((c: any) => c.id === category_id)
+  const cat = categories.value.find(c => c.id === category_id)
   return cat ? cat.name : 'Неизвестная категория'
 }
 
@@ -105,48 +114,42 @@ function formatDate(dt: string) {
   return new Date(dt).toLocaleString('ru-RU')
 }
 
-// Шаг 1: назначить исполнителем и перевести в работу
 async function assignTicket(id: number) {
-  if (!currentUser.value) {
+  if (!userStore.isAuth) {
     alert('Сначала войдите в систему')
     return
   }
-  await api.patch(`/tickets/${id}`, {
+  const assigned_to = userStore.description || userStore.name || userStore.username || ''
+  await $api.patch(`/tickets/${id}`, {
     status: 'В работе',
-    assigned_to: currentUser.value
+    assigned_to
   })
   await fetchTickets()
 }
 
-// Шаг 2: отметить готовым
 async function completeTicket(id: number) {
-  if (!currentUser.value) {
+  if (!userStore.isAuth) {
     alert('Сначала войдите в систему')
     return
   }
-  await api.patch(`/tickets/${id}`, {
+  const assigned_to = userStore.description || userStore.name || userStore.username || ''
+  await $api.patch(`/tickets/${id}`, {
     status: 'Готово',
-    assigned_to: currentUser.value
+    assigned_to
   })
   await fetchTickets()
 }
 
-// Отклонение — сразу переводим в отклонено
 async function declineTicket(id: number) {
-  if (!currentUser.value) {
+  if (!userStore.isAuth) {
     alert('Сначала войдите в систему')
     return
   }
-  await api.patch(`/tickets/${id}`, {
+  const assigned_to = userStore.description || userStore.name || userStore.username || ''
+  await $api.patch(`/tickets/${id}`, {
     status: 'Отклонен',
-    assigned_to: currentUser.value
+    assigned_to
   })
   await fetchTickets()
 }
 </script>
-
-<style>
-body {
-  font-family: sans-serif;
-}
-</style>

@@ -85,7 +85,10 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
-import api from '../api.js' // api настроен с baseURL = http://localhost:3001
+import { useNuxtApp } from '#app'
+import { useUserStore } from '~/stores/user'
+
+const userStore = useUserStore()  
 
 interface CategoryField {
   name: string
@@ -122,33 +125,33 @@ function onCategoryChange() {
 const isFormValid = computed(() => {
   if (!selectedCategory.value) return false
   return selectedCategory.value.fields.every(
-    f =>
-      !f.required ||
-      (formFields[f.name] != null && formFields[f.name].trim() !== '')
+    f => !f.required || (formFields[f.name]?.trim() !== '')
   )
 })
 
 // загрузка категорий и существующих тикетов
 async function fetchData() {
-  const catRes = await api.get('/categories')
+  const { $api } = useNuxtApp()
+  const catRes = await $api.get('/categories')
   categories.value = catRes.data
-  const ticketRes = await api.get('/tickets')
+  const ticketRes = await $api.get('/tickets')
   tickets.value = ticketRes.data
 }
 
-// при монтировании — загрузить данные
 onMounted(fetchData)
 
 // отправка новой заявки
 async function createTicket() {
-  // берём залогиненного пользователя
-  const created_by = localStorage.getItem('username') || ''
-  if (!created_by) {
+  if (!userStore.isAuth) {
     alert('Сначала войдите в систему')
     return
   }
+  const created_by = userStore.username || userStore.email || '' // или другое поле
+  if (!created_by) {
+    alert('Ошибка авторизации')
+    return
+  }
 
-  // валидация обязательных полей
   for (const f of selectedCategory.value!.fields) {
     if (f.required && !formFields[f.name]) {
       alert(`Поле "${f.name}" обязательно!`)
@@ -156,7 +159,6 @@ async function createTicket() {
     }
   }
 
-  // собираем тело запроса
   const payload = {
     category_id: Number(selectedCategoryId.value),
     fields: { ...formFields },
@@ -164,12 +166,11 @@ async function createTicket() {
   }
 
   try {
-    await api.post('/tickets', payload)
+    const { $api } = useNuxtApp()
+    await $api.post('/tickets', payload)
     alert('Заявка отправлена!')
-    // сброс формы
     Object.keys(formFields).forEach(k => (formFields[k] = ''))
     selectedCategoryId.value = ''
-    // обновить список
     await fetchData()
   } catch (err: any) {
     console.error(err)
@@ -187,9 +188,3 @@ function formatDate(dt: string) {
   return new Date(dt).toLocaleString('ru-RU')
 }
 </script>
-
-<style>
-body {
-  font-family: sans-serif;
-}
-</style>

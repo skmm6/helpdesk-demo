@@ -1,7 +1,5 @@
 <template>
-  <div
-    class="fixed inset-0 flex items-center justify-center bg-sky-400 bg-opacity-50 z-50"
-  >
+  <div class="fixed inset-0 flex items-center justify-center bg-sky-400 bg-opacity-50 z-50">
     <div class="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
       <h3 class="text-xl font-semibold mb-4">Вход в систему</h3>
       <form @submit.prevent="handleLogin" class="flex flex-col space-y-4">
@@ -31,7 +29,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import api from '../api.js' // или '../api.js' по твоему пути
+import { useNuxtApp } from '#app'
 const emits = defineEmits(['success'])
 
 const username = ref('')
@@ -39,18 +37,20 @@ const password = ref('')
 
 async function handleLogin() {
   try {
-    const res = await api.post('/auth/ldap', {
-      username: username.value,
+    const { $api } = useNuxtApp()
+    const res = await $api.post('/auth/ldap', {
+      login: username.value,         // Исправил на "login" (как в backend!)
       password: password.value
     })
     if (res.data.token) {
       localStorage.setItem('token', res.data.token)
-      localStorage.setItem('username', res.data.username)
-      emits('success', res.data.user)
+      // Вызов Pinia-стора (если тут доступен)
+      // userStore.setUser(res.data) <-- если юзаешь стор тут
+      emits('success', res.data)     // Отдаём сразу весь ответ в emit
     } else {
       alert('Ошибка авторизации')
     }
-  } catch (e) {
+  } catch (e: any) {
     alert(e.response?.data?.error || 'Ошибка входа')
   }
 }
